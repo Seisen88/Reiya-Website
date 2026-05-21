@@ -2857,11 +2857,11 @@ export default function App() {
                 <div className="flex-1 flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-brand-orangeLight uppercase tracking-widest">GCash Number</span>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="font-mono text-lg font-bold text-white select-all">0917 123 4567</span>
+                    <span className="font-mono text-lg font-bold text-white select-all">0930 430 0733</span>
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText("09171234567");
+                        navigator.clipboard.writeText("09304300733");
                         triggerMockToast("GCash Number copied to clipboard!", "success");
                       }}
                       className="p-1.5 rounded-lg bg-[#222] hover:bg-[#333] border border-brand-border hover:border-brand-textMuted/40 text-brand-textMuted hover:text-white transition-all active:scale-95"
@@ -2871,7 +2871,7 @@ export default function App() {
                     </button>
                   </div>
                   <span className="text-xs text-brand-textMuted mt-1">
-                    Account Name: <strong className="text-white">SEISEN N.</strong>
+                    Account Name: <strong className="text-white">ZA****X J** P.</strong>
                   </span>
                 </div>
                 <div className="w-24 h-24 bg-white/5 border border-brand-border rounded-lg p-1.5 flex items-center justify-center shrink-0">
@@ -2916,7 +2916,7 @@ export default function App() {
             {/* Contact buttons */}
             <div className="grid grid-cols-2 gap-4">
               <a
-                href="https://discord.gg/yourserver"
+                href="https://discord.gg/shrQaWJjPh"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold tracking-wide shadow-lg shadow-blue-600/10 transition-all active:scale-[0.98]"
@@ -2926,7 +2926,7 @@ export default function App() {
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
               <a
-                href="https://facebook.com/yourprofile"
+                href="https://www.facebook.com/reiyalib"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#1877F2] hover:bg-[#1565C0] text-white text-xs font-bold tracking-wide shadow-lg shadow-blue-500/10 transition-all active:scale-[0.98]"
