@@ -2955,7 +2955,7 @@ export default function App() {
           onClick={() => setIsQrZoomed(false)}
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 cursor-zoom-out animate-fadeIn"
         >
-          <div className="relative max-w-3xl w-full aspect-square max-h-[85vh] flex items-center justify-center animate-scaleIn">
+          <div className="relative max-w-4xl md:max-w-5xl w-full max-h-[85vh] flex items-center justify-center animate-scaleIn">
             <button 
               type="button"
               onClick={(e) => {
