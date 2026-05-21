@@ -2953,23 +2953,24 @@ export default function App() {
       {isQrZoomed && (
         <div 
           onClick={() => setIsQrZoomed(false)}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 cursor-zoom-out"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 cursor-zoom-out animate-fadeIn"
         >
-          <div className="relative max-w-xl md:max-w-2xl w-full aspect-square rounded-2xl border border-brand-border bg-white p-4 shadow-2xl flex items-center justify-center">
+          <div className="relative max-w-3xl w-full aspect-square max-h-[85vh] flex items-center justify-center animate-scaleIn">
             <button 
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsQrZoomed(false);
               }}
-              className="absolute top-4 right-4 text-brand-dark hover:text-black transition-colors bg-white/80 backdrop-blur p-2 rounded-full shadow"
+              className="absolute top-4 right-4 text-white hover:text-brand-redLight transition-all bg-black/60 hover:bg-black/80 backdrop-blur p-2.5 rounded-full shadow-lg border border-white/10 active:scale-95 z-10"
+              title="Close Zoom"
             >
-              <X className="w-5 h-5 text-[#161616]" />
+              <X className="w-6 h-6" />
             </button>
             <img 
               src="/gcash_qr.png" 
               alt="GCash QR Code Zoomed" 
-              className="w-full h-full object-contain rounded-xl"
+              className="w-full h-full object-contain select-none"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
