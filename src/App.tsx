@@ -351,9 +351,6 @@ export default function App() {
   const [addGameSource, setAddGameSource] = useState<"standard" | "online" | "installer">("standard");
   const [isAddingGame, setIsAddingGame] = useState(false);
 
-  // Testing download popup state
-  const [showDownloadTestingModal, setShowDownloadTestingModal] = useState(false);
-
   // Carousel
   const [carouselIndex, setCarouselIndex] = useState(0);
   const featuredGames = gamesList.length > 0 ? gamesList.slice(0, 3) : MOCK_GAMES.slice(0, 3);
@@ -615,11 +612,6 @@ export default function App() {
     setMockRunningGameId(null);
   };
 
-  const handleDownloadTrigger = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setShowDownloadTestingModal(true);
-  };
-
   const handleAddGameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addGameTitle.trim()) {
@@ -793,7 +785,6 @@ export default function App() {
           <div className="flex items-center gap-4">
             <a
               href={release.downloadUrl}
-              onClick={handleDownloadTrigger}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-white text-sm font-semibold tracking-wide shadow-lg shadow-brand-red/20 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
             >
               Download
@@ -826,7 +817,6 @@ export default function App() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             <a
               href={release.downloadUrl}
-              onClick={handleDownloadTrigger}
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-white font-bold tracking-wide shadow-xl shadow-brand-red/25 transition-all duration-300 hover:-translate-y-1 hover:shadow-brand-red/40 flex items-center justify-center gap-3"
             >
               <Download className="w-5 h-5" />
@@ -2513,7 +2503,6 @@ export default function App() {
               </ul>
               <a
                 href={release.downloadUrl}
-                onClick={handleDownloadTrigger}
                 className="w-full py-3 rounded-xl bg-brand-darkCard border border-brand-border hover:border-brand-textMuted/40 text-center text-sm font-semibold transition-all"
               >
                 Get Started
@@ -2555,7 +2544,6 @@ export default function App() {
               </ul>
               <a
                 href={release.downloadUrl}
-                onClick={handleDownloadTrigger}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-center text-sm font-bold shadow-lg shadow-brand-red/10 transition-all"
               >
                 Subscribe Now
@@ -2594,7 +2582,6 @@ export default function App() {
               </ul>
               <a
                 href={release.downloadUrl}
-                onClick={handleDownloadTrigger}
                 className="w-full py-3 rounded-xl bg-brand-darkCard border border-brand-border hover:border-brand-textMuted/40 text-center text-sm font-semibold transition-all"
               >
                 Go Lifetime
@@ -2667,7 +2654,6 @@ export default function App() {
           </p>
           <a
             href={release.downloadUrl}
-            onClick={handleDownloadTrigger}
             className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-white font-bold tracking-wide shadow-xl shadow-brand-red/20 transition-all duration-300 hover:-translate-y-1"
           >
             <Download className="w-5 h-5" />
@@ -2817,29 +2803,6 @@ export default function App() {
                 )}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Testing Download Modal Overlay ── */}
-      {showDownloadTestingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-brand-border bg-[#161616] p-6 shadow-2xl relative text-center">
-            <div className="w-12 h-12 rounded-full bg-brand-orange/10 border border-[#e67e22]/20 flex items-center justify-center text-brand-orangeLight mx-auto mb-4">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            
-            <h3 className="font-outfit text-lg font-bold text-white mb-2">Download Disabled (Testing Mode)</h3>
-            <p className="text-sm text-brand-textMuted mb-6 leading-relaxed">
-              This website is currently configured for user interface testing only. Direct client installer downloads are disabled during this phase.
-            </p>
-            
-            <button
-              onClick={() => setShowDownloadTestingModal(false)}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-white font-bold tracking-wide shadow-md transition-all duration-200"
-            >
-              Understand
-            </button>
           </div>
         </div>
       )}
