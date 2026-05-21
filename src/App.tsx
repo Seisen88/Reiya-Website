@@ -241,7 +241,7 @@ function formatPlaytime(seconds: number): string {
 export default function App() {
   const [release, setRelease] = useState<ReleaseInfo>({
     version: "v0.1.10",
-    downloadUrl: "https://github.com/Seisen88/Reiya-Game-Library/releases/latest",
+    downloadUrl: "https://github.com/Seisen88/Reiya-Website/releases/latest",
     publishedAt: ""
   });
 
@@ -444,7 +444,7 @@ export default function App() {
     async function fetchLatestRelease() {
       try {
         const response = await fetch(
-          "https://api.github.com/repos/Seisen88/Reiya-Game-Library/releases/latest"
+          "https://api.github.com/repos/Seisen88/Reiya-Website/releases/latest"
         );
         if (!response.ok) throw new Error("Failed to fetch release");
         const data = await response.json();
