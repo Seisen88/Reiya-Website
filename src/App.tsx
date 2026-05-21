@@ -444,7 +444,7 @@ export default function App() {
     async function fetchLatestRelease() {
       try {
         const response = await fetch(
-          "https://api.github.com/repos/Seisen88/Seisen-Game-Library/releases/latest"
+          "https://api.github.com/repos/Seisen88/Reiya-Libray/releases/latest"
         );
         if (!response.ok) throw new Error("Failed to fetch release");
         const data = await response.json();
