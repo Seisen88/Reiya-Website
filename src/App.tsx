@@ -2881,7 +2881,7 @@ export default function App() {
                   className="w-24 h-24 bg-white/5 border border-brand-border hover:border-brand-red/40 rounded-lg p-1.5 flex items-center justify-center shrink-0 cursor-zoom-in transition-all duration-300 hover:scale-105 group/qr relative overflow-hidden"
                   title="Click to Zoom QR Code"
                 >
-                  <img src="/gcash_qr.png" alt="GCash QR Code" className="w-full h-full object-contain" />
+                  <img src="/gcash_qr.png?v=3" alt="GCash QR Code" className="w-full h-full object-contain" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qr:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-[9px] font-bold text-white uppercase tracking-wider">Zoom</span>
                   </div>
@@ -2955,7 +2955,7 @@ export default function App() {
           onClick={() => setIsQrZoomed(false)}
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 cursor-zoom-out animate-fadeIn"
         >
-          <div className="relative max-w-4xl md:max-w-5xl w-full max-h-[85vh] flex items-center justify-center animate-scaleIn">
+          <div className="relative max-w-lg md:max-w-xl w-full max-h-[85vh] flex items-center justify-center animate-scaleIn">
             <button 
               type="button"
               onClick={(e) => {
@@ -2968,9 +2968,9 @@ export default function App() {
               <X className="w-6 h-6" />
             </button>
             <img 
-              src="/gcash_qr.png" 
+              src="/gcash_qr.png?v=3" 
               alt="GCash QR Code Zoomed" 
-              className="w-full h-full object-contain select-none"
+              className="w-full h-auto max-h-[85vh] object-contain select-none rounded-2xl shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
