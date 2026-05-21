@@ -357,6 +357,7 @@ export default function App() {
   // Purchase modal states
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [selectedPurchaseTier, setSelectedPurchaseTier] = useState<"1-month" | "1-year" | "lifetime" | null>(null);
+  const [isQrZoomed, setIsQrZoomed] = useState(false);
 
   // Carousel
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -2874,9 +2875,17 @@ export default function App() {
                     Account Name: <strong className="text-white">ZA****X J** P.</strong>
                   </span>
                 </div>
-                <div className="w-24 h-24 bg-white/5 border border-brand-border rounded-lg p-1.5 flex items-center justify-center shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsQrZoomed(true)}
+                  className="w-24 h-24 bg-white/5 border border-brand-border hover:border-brand-red/40 rounded-lg p-1.5 flex items-center justify-center shrink-0 cursor-zoom-in transition-all duration-300 hover:scale-105 group/qr relative overflow-hidden"
+                  title="Click to Zoom QR Code"
+                >
                   <img src="/gcash_qr.png" alt="GCash QR Code" className="w-full h-full object-contain" />
-                </div>
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qr:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-white uppercase tracking-wider">Zoom</span>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -2936,6 +2945,33 @@ export default function App() {
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Zoomed QR Code Overlay ── */}
+      {isQrZoomed && (
+        <div 
+          onClick={() => setIsQrZoomed(false)}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 cursor-zoom-out"
+        >
+          <div className="relative max-w-md w-full aspect-square rounded-2xl border border-brand-border bg-white p-4 shadow-2xl flex items-center justify-center">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsQrZoomed(false);
+              }}
+              className="absolute top-4 right-4 text-brand-dark hover:text-black transition-colors bg-white/80 backdrop-blur p-2 rounded-full shadow"
+            >
+              <X className="w-5 h-5 text-[#161616]" />
+            </button>
+            <img 
+              src="/gcash_qr.png" 
+              alt="GCash QR Code Zoomed" 
+              className="w-full h-full object-contain rounded-xl"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}
