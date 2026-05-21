@@ -351,6 +351,12 @@ export default function App() {
   const [addGameSource, setAddGameSource] = useState<"standard" | "online" | "installer">("standard");
   const [isAddingGame, setIsAddingGame] = useState(false);
 
+  // Payment and activation states
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [activationUuid, setActivationUuid] = useState<string | null>(null);
+  const [activationStatus, setActivationStatus] = useState<"verifying" | "success" | "error" | null>(null);
+  const [verifiedProfile, setVerifiedProfile] = useState<{ uuid: string; subscription_ends_at: string } | null>(null);
+
   // Carousel
   const [carouselIndex, setCarouselIndex] = useState(0);
   const featuredGames = gamesList.length > 0 ? gamesList.slice(0, 3) : MOCK_GAMES.slice(0, 3);
@@ -368,6 +374,65 @@ export default function App() {
     setMockToast({ message, type });
     setTimeout(() => setMockToast(null), 3500);
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get("payment");
+    const uuid = params.get("uuid");
+
+    if (payment === "success" && uuid) {
+      setActivationUuid(uuid);
+      setActivationStatus("verifying");
+      
+      // Start polling the verify-user endpoint
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        if (attempts > 30) { // Timeout after 1 minute (30 * 2s)
+          clearInterval(interval);
+          setActivationStatus("error");
+          triggerMockToast("Activation timeout. Please contact support.", "error");
+          return;
+        }
+
+        try {
+          const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+          const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+          
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-user`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({ uuid }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.subscription_active) {
+              clearInterval(interval);
+              setVerifiedProfile({
+                uuid,
+                subscription_ends_at: data.subscription_ends_at,
+              });
+              setActivationStatus("success");
+              triggerMockToast("Payment successful! License key activated.", "success");
+            }
+          }
+        } catch (err) {
+          console.error("Error polling verify-user:", err);
+        }
+      }, 2000);
+
+      return () => clearInterval(interval);
+    } else if (payment === "cancel") {
+      triggerMockToast("Payment cancelled.", "info");
+      // Clean up URL query parameters
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
 
   // Simulated ticks
   useEffect(() => {
@@ -610,6 +675,49 @@ export default function App() {
       triggerMockToast(`Stopped ${running.title}. Saved playtime.`, "info");
     }
     setMockRunningGameId(null);
+  };
+
+  const initiateCheckout = async (e: React.MouseEvent, tier: "1-month" | "1-year" | "lifetime") => {
+    e.preventDefault();
+    setPaymentLoading(true);
+    
+    try {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          tier,
+          success_url_override: window.location.origin,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok && data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        setPaymentLoading(false);
+        triggerMockToast(data.error || "Failed to create checkout session", "error");
+      }
+    } catch (err) {
+      setPaymentLoading(false);
+      console.error(err);
+      triggerMockToast("Connection error. Please try again.", "error");
+    }
+  };
+
+  const handleCloseActivation = () => {
+    setActivationUuid(null);
+    setActivationStatus(null);
+    setVerifiedProfile(null);
+    // Clear URL parameters
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
   };
 
   const handleAddGameSubmit = async (e: React.FormEvent) => {
@@ -2501,12 +2609,12 @@ export default function App() {
                   <span>Full Downloader Access</span>
                 </li>
               </ul>
-              <a
-                href={release.downloadUrl}
-                className="w-full py-3 rounded-xl bg-brand-darkCard border border-brand-border hover:border-brand-textMuted/40 text-center text-sm font-semibold transition-all"
+              <button
+                onClick={(e) => initiateCheckout(e, "1-month")}
+                className="w-full py-3 rounded-xl bg-brand-darkCard border border-brand-border hover:border-brand-textMuted/40 text-center text-sm font-semibold transition-all text-white"
               >
                 Get Started
-              </a>
+              </button>
             </div>
 
             {/* 1 Year */}
@@ -2542,12 +2650,12 @@ export default function App() {
                   <span>Priority Updates</span>
                 </li>
               </ul>
-              <a
-                href={release.downloadUrl}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-center text-sm font-bold shadow-lg shadow-brand-red/10 transition-all"
+              <button
+                onClick={(e) => initiateCheckout(e, "1-year")}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-center text-sm font-bold shadow-lg shadow-brand-red/10 transition-all text-white"
               >
                 Subscribe Now
-              </a>
+              </button>
             </div>
 
             {/* Lifetime */}
@@ -2580,12 +2688,12 @@ export default function App() {
                   <span>Lifetime Client Updates</span>
                 </li>
               </ul>
-              <a
-                href={release.downloadUrl}
-                className="w-full py-3 rounded-xl bg-brand-darkCard border border-brand-border hover:border-brand-textMuted/40 text-center text-sm font-semibold transition-all"
+              <button
+                onClick={(e) => initiateCheckout(e, "lifetime")}
+                className="w-full py-3 rounded-xl bg-brand-darkCard border border-brand-border hover:border-brand-textMuted/40 text-center text-sm font-semibold transition-all text-white"
               >
                 Go Lifetime
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -2803,6 +2911,127 @@ export default function App() {
                 )}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Payment Redirection Loader Overlay ── */}
+      {paymentLoading && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-[#161616] p-8 shadow-2xl text-center flex flex-col items-center">
+            <Loader2 className="w-12 h-12 text-brand-orange animate-spin mb-6" />
+            <h3 className="font-outfit text-xl font-bold text-white mb-2">Preparing Payment</h3>
+            <p className="text-sm text-brand-textMuted leading-relaxed">
+              Generating secure GCash checkout session. You will be redirected to the WebPay gateway shortly...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Payment Success Verification Overlay ── */}
+      {activationStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-brand-border bg-[#161616] p-8 shadow-2xl relative text-left">
+            {activationStatus === "verifying" && (
+              <div className="text-center flex flex-col items-center py-6">
+                <Loader2 className="w-12 h-12 text-brand-orange animate-spin mb-6" />
+                <h3 className="font-outfit text-xl font-bold text-white mb-2">Verifying Payment</h3>
+                <p className="text-sm text-brand-textMuted leading-relaxed max-w-sm">
+                  We're verifying your transaction with GCash. Key: <code className="text-brand-orange text-xs font-mono select-all">{activationUuid}</code>. It will activate automatically in a few seconds...
+                </p>
+              </div>
+            )}
+
+            {activationStatus === "error" && (
+              <div className="text-center flex flex-col items-center py-4">
+                <div className="w-12 h-12 rounded-full bg-brand-red/10 border border-brand-red/20 flex items-center justify-center text-brand-redLight mb-4">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h3 className="font-outfit text-xl font-bold text-white mb-2">Verification Timeout</h3>
+                <p className="text-sm text-brand-textMuted leading-relaxed mb-6 max-w-sm">
+                  We couldn't confirm your payment in time. If you were already charged, don't worry—your key will activate shortly. Contact support if you need assistance.
+                </p>
+                <button
+                  onClick={handleCloseActivation}
+                  className="px-6 py-2.5 rounded-xl bg-brand-darkCard border border-brand-border hover:border-brand-textMuted/40 text-sm font-semibold text-white transition-all w-full"
+                >
+                  Close Window
+                </button>
+              </div>
+            )}
+
+            {activationStatus === "success" && verifiedProfile && (
+              <div className="flex flex-col">
+                <div className="text-center flex flex-col items-center mb-6">
+                  <div className="w-12 h-12 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-400 mb-4 animate-bounce">
+                    <Check className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-outfit text-2xl font-extrabold text-white mb-2">Payment Successful!</h3>
+                  <p className="text-sm text-brand-textMuted max-w-sm">
+                    Thank you for your purchase! Your account has been activated. Below is your unique license key.
+                  </p>
+                </div>
+
+                {/* License Key Display Card */}
+                <div className="rounded-xl border border-brand-border bg-brand-darkLighter p-5 mb-6 flex flex-col gap-3 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-brand-orange/5 rounded-full blur-xl group-hover:bg-brand-orange/10 transition-all duration-500" />
+                  
+                  <div className="text-[10px] font-bold text-brand-orangeLight uppercase tracking-widest">
+                    Your Reiya Library User ID
+                  </div>
+                  
+                  <div className="flex items-center justify-between gap-3 bg-[#111] p-3.5 rounded-lg border border-brand-border/40">
+                    <code className="font-mono text-sm text-white select-all break-all pr-2">
+                      {verifiedProfile.uuid}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(verifiedProfile.uuid);
+                        triggerMockToast("Copied User ID to clipboard!", "success");
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg bg-brand-orange hover:bg-brand-orangeLight text-white text-xs font-bold transition-all shrink-0 active:scale-95"
+                    >
+                      Copy Key
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-brand-textMuted flex items-center justify-between">
+                    <span>Subscription Active Until:</span>
+                    <strong className="text-white font-medium">
+                      {new Date(verifiedProfile.subscription_ends_at).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Setup Instructions */}
+                <div className="text-xs text-brand-textMuted leading-relaxed mb-6 space-y-2 bg-brand-darkLighter/30 p-4 rounded-xl border border-brand-border/20">
+                  <div className="font-bold text-white mb-1">How to activate in Reiya Library Client:</div>
+                  <div className="flex gap-2">
+                    <span className="text-brand-orange font-bold">1.</span>
+                    <span>Download and install the client installer.</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-brand-orange font-bold">2.</span>
+                    <span>Open the Reiya Library client on your PC.</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-brand-orange font-bold">3.</span>
+                    <span>Go to <strong>Settings &gt; Account</strong>, paste this User ID in the activation input, and save.</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleCloseActivation}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-white font-bold tracking-wide shadow-lg shadow-brand-red/20 transition-all duration-200 active:scale-[0.98]"
+                >
+                  Start Using Reiya Library
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
