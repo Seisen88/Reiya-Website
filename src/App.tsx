@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import AdminPanel from "./components/admin/AdminPanel";
 import { 
   Download, 
   Gamepad2, 
@@ -241,7 +242,49 @@ function formatPlaytime(seconds: number): string {
   return `${hrs} hrs played`;
 }
 
+function sanitizeApiKey(key: string | null | undefined): string {
+  if (!key) return "";
+  let sanitized = key.trim();
+  
+  const prefixes = [
+    "vite_supabase_service_role_key=",
+    "supabase_service_role_key=",
+    "service_role_key=",
+    "service_role="
+  ];
+  
+  const lower = sanitized.toLowerCase();
+  for (const prefix of prefixes) {
+    if (lower.startsWith(prefix)) {
+      sanitized = sanitized.slice(prefix.length).trim();
+      break;
+    }
+  }
+
+  while (
+    (sanitized.startsWith('"') && sanitized.endsWith('"')) || 
+    (sanitized.startsWith("'") && sanitized.endsWith("'"))
+  ) {
+    sanitized = sanitized.slice(1, -1).trim();
+  }
+  
+  return sanitized;
+}
+
 export default function App() {
+  const [adminKey, setAdminKey] = useState<string>(() => {
+    const signedOut = localStorage.getItem("reiya_admin_signed_out") === "true";
+    if (signedOut) return "";
+    const rawKey = localStorage.getItem("reiya_admin_key") || (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) || "";
+    return sanitizeApiKey(rawKey);
+  });
+
+  const [isAdminPage, setIsAdminPage] = useState<boolean>(() => {
+    const path = window.location.pathname;
+    const hash = window.location.hash;
+    return path === "/admin" || hash === "#admin" || hash === "#/admin";
+  });
+
   const [release, setRelease] = useState<ReleaseInfo>({
     version: "v0.1.10",
     downloadUrl: "https://github.com/Seisen88/Reiya-Website/releases/latest",
@@ -372,10 +415,17 @@ export default function App() {
   );
 
   // Toast Helper
-  const triggerMockToast = (message: string, type: "success" | "info" | "error" = "success") => {
+  const triggerMockToast = useCallback((message: string, type: "success" | "info" | "error" = "success") => {
     setMockToast({ message, type });
     setTimeout(() => setMockToast(null), 3500);
-  };
+  }, []);
+
+  const handleUnauthorized = useCallback(() => {
+    setAdminKey("");
+    localStorage.removeItem("reiya_admin_key");
+    localStorage.setItem("reiya_admin_signed_out", "true");
+    triggerMockToast("Session unauthorized: Invalid or expired service role key. Signed out.", "error");
+  }, [triggerMockToast]);
 
   // Simulated ticks
   useEffect(() => {
@@ -482,88 +532,98 @@ export default function App() {
     return () => clearInterval(timer);
   }, [featuredGames.length]);
 
-  // Fetch games from Supabase REST endpoints
+  // Listen to routing / navigation changes to toggle Admin view
   useEffect(() => {
-    let active = true;
-    async function fetchGames() {
-      try {
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-        const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-        const headers = {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
-        };
+    const handleLocationChange = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      setIsAdminPage(path === "/admin" || hash === "#admin" || hash === "#/admin");
+    };
+    window.addEventListener("popstate", handleLocationChange);
+    window.addEventListener("hashchange", handleLocationChange);
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+      window.removeEventListener("hashchange", handleLocationChange);
+    };
+  }, []);
+
+  const refreshCatalogue = async () => {
+    setIsLoadingGames(true);
+    try {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      const headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+      };
+      
+      const [gamesRes, onlineRes, installerRes] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/games?select=*`, { headers }),
+        fetch(`${SUPABASE_URL}/rest/v1/online_games?select=*`, { headers }),
+        fetch(`${SUPABASE_URL}/rest/v1/installer_games?select=*`, { headers })
+      ]);
+
+      if (!gamesRes.ok || !onlineRes.ok || !installerRes.ok) {
+        throw new Error("Failed to fetch one or more tables from Supabase");
+      }
+
+      const rawGames = await gamesRes.json();
+      const rawOnline = await onlineRes.json();
+      const rawInstaller = await installerRes.json();
+
+      const mapGameItem = (item: any, source: "standard" | "online" | "installer"): CatalogueFile => {
+        let desc = item.description || "";
+        if (!desc && item.rawg_description) {
+          desc = item.rawg_description.replace(/<[^>]*>/g, "");
+        }
+        if (!desc) {
+          desc = "No description available.";
+        }
         
-        const [gamesRes, onlineRes, installerRes] = await Promise.all([
-          fetch(`${SUPABASE_URL}/rest/v1/games?select=*`, { headers }),
-          fetch(`${SUPABASE_URL}/rest/v1/online_games?select=*`, { headers }),
-          fetch(`${SUPABASE_URL}/rest/v1/installer_games?select=*`, { headers })
-        ]);
-
-        if (!gamesRes.ok || !onlineRes.ok || !installerRes.ok) {
-          throw new Error("Failed to fetch one or more tables from Supabase");
-        }
-
-        const rawGames = await gamesRes.json();
-        const rawOnline = await onlineRes.json();
-        const rawInstaller = await installerRes.json();
-
-        const mapGameItem = (item: any, source: "standard" | "online" | "installer"): CatalogueFile => {
-          let desc = item.description || "";
-          if (!desc && item.rawg_description) {
-            desc = item.rawg_description.replace(/<[^>]*>/g, "");
-          }
-          if (!desc) {
-            desc = "No description available.";
-          }
-          
-          return {
-            id: item.id ? item.id.toString() : Math.random().toString(),
-            title: item.title || "Untitled Game",
-            filename: item.filename || "",
-            description: desc,
-            genre: item.genre || "General",
-            size_bytes: Number(item.size_bytes) || 0,
-            release_year: Number(item.release_year) || new Date().getFullYear(),
-            downloads_count: Number(item.downloads_count) || 0,
-            likes_count: Number(item.likes_count) || 0,
-            thumbnail_url: item.thumbnail_url || "",
-            backdrop_url: (item.rawg_screenshots && item.rawg_screenshots[0]) || item.thumbnail_url || "",
-            source: source
-          };
+        return {
+          id: item.id ? item.id.toString() : Math.random().toString(),
+          title: item.title || "Untitled Game",
+          filename: item.filename || "",
+          description: desc,
+          genre: item.genre || "General",
+          size_bytes: Number(item.size_bytes) || 0,
+          release_year: Number(item.release_year) || new Date().getFullYear(),
+          downloads_count: Number(item.downloads_count) || 0,
+          likes_count: Number(item.likes_count) || 0,
+          thumbnail_url: item.thumbnail_url || "",
+          backdrop_url: (item.rawg_screenshots && item.rawg_screenshots[0]) || item.thumbnail_url || "",
+          source: source
         };
+      };
 
-        const mappedGames = [
-          ...rawGames.map((g: any) => mapGameItem(g, "standard")),
-          ...rawOnline.map((g: any) => mapGameItem(g, "online")),
-          ...rawInstaller.map((g: any) => mapGameItem(g, "installer"))
-        ];
+      const mappedGames = [
+        ...rawGames.map((g: any) => mapGameItem(g, "standard")),
+        ...rawOnline.map((g: any) => mapGameItem(g, "online")),
+        ...rawInstaller.map((g: any) => mapGameItem(g, "installer"))
+      ];
 
-        if (active) {
-          const seen = new Set<string>();
-          const uniqueGames: CatalogueFile[] = [];
-          for (const g of mappedGames) {
-            const key = g.id || g.title || g.filename || "";
-            if (key && !seen.has(key)) {
-              seen.add(key);
-              uniqueGames.push(g);
-            }
-          }
-          
-          setGamesList(uniqueGames);
-          setIsLoadingGames(false);
-        }
-      } catch (err) {
-        console.error("Error fetching games from Supabase:", err);
-        if (active) {
-          setIsLoadingGames(false);
+      const seen = new Set<string>();
+      const uniqueGames: CatalogueFile[] = [];
+      for (const g of mappedGames) {
+        const key = g.id || g.title || g.filename || "";
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          uniqueGames.push(g);
         }
       }
+      
+      setGamesList(uniqueGames);
+    } catch (err) {
+      console.error("Error fetching games from Supabase:", err);
+      throw err;
+    } finally {
+      setIsLoadingGames(false);
     }
-    fetchGames();
-    return () => {
-      active = false;
-    };
+  };
+
+  // Fetch games from Supabase REST endpoints
+  useEffect(() => {
+    refreshCatalogue().catch(() => {});
   }, []);
 
   // Start download trigger
@@ -772,6 +832,123 @@ export default function App() {
     if (!aPinned && bPinned) return 1;
     return 0;
   });
+
+  if (isAdminPage) {
+    return (
+      <div className="min-h-screen bg-brand-dark text-white selection:bg-brand-redLight selection:text-white font-sans antialiased overflow-x-hidden flex flex-col relative">
+        {/* ── Background Gradients ── */}
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+        <div className="absolute top-[800px] right-1/4 w-[600px] h-[600px] bg-brand-orange/5 rounded-full blur-[150px] pointer-events-none -z-10" />
+
+        {/* ── Header ── */}
+        <header className="sticky top-0 z-50 backdrop-blur-md bg-brand-dark/75 border-b border-brand-border">
+          <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src="/app-icon.png" alt="Reiya Logo" className="w-14 h-14 object-contain" />
+              <span className="font-outfit text-xl font-bold tracking-tight bg-gradient-to-r from-white via-white to-brand-orangeLight bg-clip-text text-transparent animate-pulse">
+                Reiya Admin Console
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  window.location.hash = "";
+                  window.history.pushState(null, "", "/");
+                  setIsAdminPage(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-brand-darkLighter border border-brand-border hover:bg-brand-darkCard hover:text-white text-xs font-semibold text-brand-textMuted transition-all duration-200"
+              >
+                Back to Main Site
+              </button>
+              {adminKey && (
+                <button
+                  onClick={() => {
+                    setAdminKey("");
+                    localStorage.removeItem("reiya_admin_key");
+                    localStorage.setItem("reiya_admin_signed_out", "true");
+                    triggerMockToast("Logged out from Admin Console", "info");
+                  }}
+                  className="px-4 py-2 rounded-xl bg-brand-red/20 hover:bg-brand-red/45 border border-brand-red/30 text-brand-redLight hover:border-brand-red font-semibold text-xs transition-colors"
+                >
+                  Sign Out
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* ── Main View ── */}
+        <main className="flex-1 max-w-7xl w-full mx-auto p-6 relative">
+          {mockToast && (
+            <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-[#161616]/95 border border-[#2a2a2a] text-xs font-semibold px-4 py-2 rounded-lg shadow-xl flex items-center gap-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${mockToast.type === 'success' ? 'bg-[#27c93f]' : mockToast.type === 'error' ? 'bg-[#ff5f56]' : 'bg-[#ffbd2e]'}`} />
+              <span>{mockToast.message}</span>
+            </div>
+          )}
+
+          {adminKey ? (
+            <AdminPanel 
+              adminKey={adminKey} 
+              toast={triggerMockToast} 
+              refreshCatalogue={refreshCatalogue} 
+              onUnauthorized={handleUnauthorized}
+            />
+          ) : (
+            <div className="max-w-md mx-auto my-16 bg-[#161616]/65 border border-brand-border/60 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-brand-red/10 border border-brand-red/20 flex items-center justify-center text-brand-redLight mb-4">
+                  <Shield className="w-8 h-8" />
+                </div>
+                <h2 className="font-outfit text-2xl font-extrabold text-white">Admin Authentication</h2>
+                <p className="text-sm text-brand-textMuted mt-1">
+                  Enter your Supabase service role key to manage catalogs, users, and analytics.
+                </p>
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const input = formData.get("service_role_key") as string;
+                const sanitized = sanitizeApiKey(input);
+                if (sanitized) {
+                  setAdminKey(sanitized);
+                  localStorage.setItem("reiya_admin_key", sanitized);
+                  localStorage.removeItem("reiya_admin_signed_out");
+                  triggerMockToast("Authenticated successfully", "success");
+                } else {
+                  triggerMockToast("Service role key is required", "error");
+                }
+              }} className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-brand-textMuted uppercase tracking-wider">Service Role Key</label>
+                  <input
+                    name="service_role_key"
+                    type="password"
+                    required
+                    placeholder="paste your service_role key here..."
+                    className="w-full bg-[#0f0f0f] border border-brand-border rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-brand-red font-mono"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-red to-brand-orange hover:from-brand-redLight hover:to-brand-orangeLight text-white font-bold tracking-wide shadow-xl shadow-brand-red/20 transition-all duration-300 active:scale-[0.98]"
+                >
+                  Unlock Console
+                </button>
+              </form>
+            </div>
+          )}
+        </main>
+
+        {/* ── Footer ── */}
+        <footer className="py-6 border-t border-brand-border bg-brand-dark/50 mt-auto">
+          <div className="max-w-7xl mx-auto px-6 text-center text-xs text-brand-textMuted">
+            © {new Date().getFullYear()} Reiya Library Admin Console. Keep credentials confidential.
+          </div>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-dark text-white selection:bg-brand-redLight selection:text-white font-sans antialiased overflow-x-hidden">
@@ -2088,6 +2265,8 @@ export default function App() {
 
                     </div>
                   )}
+
+
 
                   {/* VIEW: SETTINGS */}
                   {mockActiveTab === "settings" && (
